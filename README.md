@@ -1,2 +1,110 @@
 # opensim-piper
-Docker build  of piper, intended for use with opensim-stack.
+
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-bithatch%2Fopensim--piper-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/repository/docker/bithatch/opensim-piper/general)
+
+`opensim-piper` is a containerized HTTP wrapper for the [Piper](https://github.com/OHF-Voice/piper1-gpl) TTS engine.
+
+It runs a lightweight web server in front of Piper so other services can request speech by HTTP.
+
+*This is part of the [opensim-stack](https://opensim-stack.github.io/) and is intended to be used in conjunction with other parts of the stack. See [Docs](https://opensim-stack.github.io/docs/index.html) for full details.*
+
+## What this image does
+
+- Installs `piper-tts` and starts an HTTP server for synthesis requests
+- Pre-installs two US English voices:
+  - `en_US-lessac-medium` (female)
+  - `en_US-ryan-medium` (male)
+- Serves health and voice listing endpoints for easy wiring/debugging
+- Uses environment variables for host, port, default voice, and timeout controls
+
+## Runtime defaults
+
+- `PIPER_HTTP_HOST=0.0.0.0`
+- `PIPER_HTTP_PORT=8995`
+- `PIPER_VOICE_DIR=/voices`
+- `PIPER_DEFAULT_VOICE=en_US-lessac-medium`
+- `PIPER_TIMEOUT_SECONDS=60`
+
+## Required volume mappings
+
+- `piper-voices` -> `/voices` (recommended, for custom voices and persistence)
+
+At startup, bundled default voices are copied into `/voices` if missing.
+
+## Build local image
+
+```bash
+docker build -t opensim-piper:local .
+```
+
+## Run local image
+
+```bash
+docker run --rm \
+  -e PIPER_HTTP_HOST=0.0.0.0 \
+  -e PIPER_HTTP_PORT=8995 \
+  -e PIPER_DEFAULT_VOICE=en_US-lessac-medium \
+  -p 8995:8995 \
+  -v piper-voices:/voices \
+  opensim-piper:local
+```
+
+## HTTP API quick reference
+
+- `GET /health` basic status and loaded voices
+- `GET /voices` list available voices and current default
+- `POST /tts` (or `POST /v1/tts`) synthesize text, returns `audio/wav`
+
+Example request:
+
+```bash
+curl -sS -X POST "http://localhost:8995/tts" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello from OpenSim stack.","voice":"en_US-ryan-medium"}' \
+  --output hello.wav
+```
+
+## Add a new voice model
+
+1. Download both files for a Piper voice into your mounted `/voices` directory:
+   - `<voice-name>.onnx`
+   - `<voice-name>.onnx.json`
+2. Set `PIPER_DEFAULT_VOICE=<voice-name>` if you want it as the default.
+3. Restart the container, then verify with `GET /voices`.
+
+Example (inside mounted voice directory):
+
+```bash
+curl -fsSLO "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/medium/en_GB-alan-medium.onnx"
+curl -fsSLO "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json"
+```
+
+## Optional environment variables
+
+- `PIPER_HTTP_HOST` HTTP bind host
+- `PIPER_HTTP_PORT` HTTP bind port
+- `PIPER_VOICE_DIR` voice model directory
+- `PIPER_PRELOAD_VOICE_DIR` internal bundled voice directory used for first-run seeding
+- `PIPER_DEFAULT_VOICE` default voice name (without `.onnx`) or absolute model path
+- `PIPER_TIMEOUT_SECONDS` synthesis timeout
+- `PIPER_SERVER_EXTRA_ARGS` extra args passed to the Python HTTP server process
+
+## Build and publish multiarch image
+
+Create/use a buildx builder once:
+
+```bash
+docker buildx create --name multiarch --use
+docker buildx inspect --bootstrap
+```
+
+Build and push Linux AMD64 + ARM64:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t bithatch/opensim-piper:latest \
+  -t bithatch/opensim-piper:$(date +%Y%m%d) \
+  --push \
+  .
+```

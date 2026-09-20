@@ -1,6 +1,7 @@
 # opensim-piper
 
-[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-bithatch%2Fopensim--piper-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/repository/docker/bithatch/opensim-piper/general)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-bithatch%2Fopensim--piper-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/bithatch/opensim-piper)
+[![Docker Publish](https://github.com/opensim-stack/opensim-piper/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/opensim-stack/opensim-piper/actions/workflows/docker-publish.yml)
 
 `opensim-piper` is a containerized HTTP wrapper for the [Piper](https://github.com/OHF-Voice/piper1-gpl) TTS engine.
 
@@ -89,22 +90,6 @@ curl -fsSLO "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB
 - `PIPER_TIMEOUT_SECONDS` synthesis timeout
 - `PIPER_SERVER_EXTRA_ARGS` extra args passed to the Python HTTP server process
 
-## Build and publish multiarch image
+## Building and publishing
 
-Create/use a buildx builder once:
-
-```bash
-docker buildx create --name multiarch --use
-docker buildx inspect --bootstrap
-```
-
-Build and push Linux AMD64 + ARM64:
-
-```bash
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t bithatch/opensim-piper:latest \
-  -t bithatch/opensim-piper:$(date +%Y%m%d) \
-  --push \
-  .
-```
+See `BUILDING.md` for local build/run steps, manual multiarch publish commands, and automated GitHub Actions publish details.

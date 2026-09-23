@@ -11,6 +11,7 @@ ENV PIPER_VOICE_DIR=/voices
 ENV PIPER_PRELOAD_VOICE_DIR=/opt/piper/preloaded-voices
 ENV PIPER_DEFAULT_VOICE=en_US-lessac-medium
 ENV PIPER_TIMEOUT_SECONDS=60
+ENV PIPER_OUTPUT_SAMPLE_RATE=0
 ENV PATH="/opt/venv/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

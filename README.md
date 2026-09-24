@@ -59,12 +59,6 @@ docker run --rm \
 - `POST /tts` (or `POST /v1/tts`) synthesize text, returns `audio/wav`
 - Optional request field: `output_sample_rate` (integer, `0` for model default)
 
-Response headers on `/tts`:
-
-- `X-Audio-Sample-Rate` effective WAV sample rate returned
-- `X-Audio-Source-Sample-Rate` Piper output sample rate before any wrapper resample
-- `X-Audio-Resampled` `true` when the wrapper resampled PCM WAV to requested rate
-
 Example request:
 
 ```bash

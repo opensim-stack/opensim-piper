@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import audioop
+import io
 import json
 import os
 import subprocess
 import tempfile
+import wave
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -35,6 +38,45 @@ def resolve_output_sample_rate(payload: dict) -> int:
         raise ValueError("output_sample_rate must be >= 0")
 
     return sample_rate
+
+
+def inspect_wav_sample_rate(audio: bytes) -> int:
+    with wave.open(io.BytesIO(audio), "rb") as wav:
+        return int(wav.getframerate())
+
+
+def resample_wav_pcm(audio: bytes, target_sample_rate: int) -> tuple[bytes, int, bool]:
+    """Resample PCM WAV bytes to target rate using stdlib audioop.ratecv.
+
+    Returns (audio_bytes, effective_sample_rate, was_resampled).
+    """
+    if target_sample_rate <= 0:
+        return audio, inspect_wav_sample_rate(audio), False
+
+    with wave.open(io.BytesIO(audio), "rb") as wav:
+        channels = wav.getnchannels()
+        sampwidth = wav.getsampwidth()
+        source_sample_rate = int(wav.getframerate())
+        comptype = wav.getcomptype()
+        compname = wav.getcompname()
+        frames = wav.readframes(wav.getnframes())
+
+    if source_sample_rate == target_sample_rate:
+        return audio, source_sample_rate, False
+
+    if comptype != "NONE":
+        raise ValueError(f"Unsupported WAV compression for resample: {comptype}/{compname}")
+
+    converted, _ = audioop.ratecv(frames, sampwidth, channels, source_sample_rate, target_sample_rate, None)
+
+    out = io.BytesIO()
+    with wave.open(out, "wb") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(sampwidth)
+        wav.setframerate(target_sample_rate)
+        wav.writeframes(converted)
+
+    return out.getvalue(), target_sample_rate, True
 
 
 def voice_model_path(voice: str) -> Path:
@@ -178,9 +220,32 @@ class PiperHandler(BaseHTTPRequestHandler):
         finally:
             wav_path.unlink(missing_ok=True)
 
+        effective_sample_rate = 0
+        source_sample_rate = 0
+        was_resampled = False
+        if output_sample_rate > 0:
+            try:
+                source_sample_rate = inspect_wav_sample_rate(audio)
+                audio, effective_sample_rate, was_resampled = resample_wav_pcm(audio, output_sample_rate)
+            except Exception as exc:
+                self._send_json(
+                    {
+                        "error": "WAV sample-rate conversion failed",
+                        "details": str(exc),
+                    },
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+                return
+        else:
+            effective_sample_rate = inspect_wav_sample_rate(audio)
+            source_sample_rate = effective_sample_rate
+
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "audio/wav")
         self.send_header("Content-Length", str(len(audio)))
+        self.send_header("X-Audio-Sample-Rate", str(effective_sample_rate))
+        self.send_header("X-Audio-Source-Sample-Rate", str(source_sample_rate))
+        self.send_header("X-Audio-Resampled", "true" if was_resampled else "false")
         self.end_headers()
         self.wfile.write(audio)
 

@@ -7,7 +7,6 @@ import audioop
 import io
 import json
 import os
-import shlex
 import subprocess
 import tempfile
 import wave
@@ -177,6 +176,8 @@ class PiperHandler(BaseHTTPRequestHandler):
             return
 
         cmd = ["piper", "--model", str(model_path)]
+        if output_sample_rate > 0:
+            cmd.extend(["--output_sample_rate", str(output_sample_rate)])
 
         for key, flag in (
             ("speaker", "--speaker"),
@@ -193,9 +194,6 @@ class PiperHandler(BaseHTTPRequestHandler):
             wav_path = Path(wav_file.name)
 
         cmd.extend(["--output_file", str(wav_path)])
-
-        # Debug: print the exact Piper command line being executed.
-        print(f"[piper-http] cmd={shlex.join(cmd)}")
 
         try:
             subprocess.run(

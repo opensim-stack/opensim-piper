@@ -25,7 +25,6 @@ It runs a lightweight web server in front of Piper so other services can request
 - `PIPER_VOICE_DIR=/voices`
 - `PIPER_DEFAULT_VOICE=en_US-lessac-medium`
 - `PIPER_TIMEOUT_SECONDS=60`
-- `PIPER_OUTPUT_SAMPLE_RATE=0` (`0` uses model default; set `48000` for 48 kHz output)
 
 ## Required volume mappings
 
@@ -46,7 +45,6 @@ docker run --rm \
   -e PIPER_HTTP_HOST=0.0.0.0 \
   -e PIPER_HTTP_PORT=8995 \
   -e PIPER_DEFAULT_VOICE=en_US-lessac-medium \
-  -e PIPER_OUTPUT_SAMPLE_RATE=48000 \
   -p 8995:8995 \
   -v piper-voices:/voices \
   opensim-piper:local
@@ -57,14 +55,13 @@ docker run --rm \
 - `GET /health` basic status and loaded voices
 - `GET /voices` list available voices and current default
 - `POST /tts` (or `POST /v1/tts`) synthesize text, returns `audio/wav`
-- Optional request field: `output_sample_rate` (integer, `0` for model default)
 
 Example request:
 
 ```bash
 curl -sS -X POST "http://localhost:8995/tts" \
   -H "Content-Type: application/json" \
-  -d '{"text":"Hello from OpenSim stack.","voice":"en_US-ryan-medium","output_sample_rate":48000}' \
+  -d '{"text":"Hello from OpenSim stack.","voice":"en_US-ryan-medium"}' \
   --output hello.wav
 ```
 
@@ -91,7 +88,6 @@ curl -fsSLO "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB
 - `PIPER_PRELOAD_VOICE_DIR` internal bundled voice directory used for first-run seeding
 - `PIPER_DEFAULT_VOICE` default voice name (without `.onnx`) or absolute model path
 - `PIPER_TIMEOUT_SECONDS` synthesis timeout
-- `PIPER_OUTPUT_SAMPLE_RATE` default output sample rate (`0` keeps voice-model default)
 - `PIPER_SERVER_EXTRA_ARGS` extra args passed to the Python HTTP server process
 
 ## Building and publishing

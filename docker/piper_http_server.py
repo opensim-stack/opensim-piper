@@ -17,24 +17,6 @@ PORT = int(os.environ.get("PIPER_HTTP_PORT", "8995"))
 VOICE_DIR = Path(os.environ.get("PIPER_VOICE_DIR", "/voices"))
 DEFAULT_VOICE = os.environ.get("PIPER_DEFAULT_VOICE", "en_US-lessac-medium")
 TIMEOUT_SECONDS = int(os.environ.get("PIPER_TIMEOUT_SECONDS", "60"))
-DEFAULT_OUTPUT_SAMPLE_RATE = int(os.environ.get("PIPER_OUTPUT_SAMPLE_RATE", "0"))
-
-
-def resolve_output_sample_rate(payload: dict) -> int:
-    """Resolve output sample rate from request or env default (0 = model default)."""
-    raw = payload.get("output_sample_rate", DEFAULT_OUTPUT_SAMPLE_RATE)
-    if raw in (None, ""):
-        return 0
-
-    try:
-        sample_rate = int(raw)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("output_sample_rate must be an integer >= 0") from exc
-
-    if sample_rate < 0:
-        raise ValueError("output_sample_rate must be >= 0")
-
-    return sample_rate
 
 
 def voice_model_path(voice: str) -> Path:
@@ -87,7 +69,6 @@ class PiperHandler(BaseHTTPRequestHandler):
                 {
                     "status": "ok",
                     "default_voice": DEFAULT_VOICE,
-                    "default_output_sample_rate": DEFAULT_OUTPUT_SAMPLE_RATE,
                     "voices": list_voices(),
                 }
             )
@@ -115,12 +96,6 @@ class PiperHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "Missing required field: text"}, HTTPStatus.BAD_REQUEST)
             return
 
-        try:
-            output_sample_rate = resolve_output_sample_rate(payload)
-        except ValueError as exc:
-            self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
-            return
-
         voice = str(payload.get("voice", DEFAULT_VOICE)).strip() or DEFAULT_VOICE
         model_path = voice_model_path(voice)
         if not model_path.exists():
@@ -134,8 +109,6 @@ class PiperHandler(BaseHTTPRequestHandler):
             return
 
         cmd = ["piper", "--model", str(model_path)]
-        if output_sample_rate > 0:
-            cmd.extend(["--output_sample_rate", str(output_sample_rate)])
 
         for key, flag in (
             ("speaker", "--speaker"),
